@@ -1,0 +1,69 @@
+
+Great setup to have — that changes the architecture significantly for the better. Let me understand your stack before recommending the right approach.While you answer those, here's the high-level picture of how your existing stack slots into what we already built — so you can start thinking about which approach fits:
+
+---
+
+## How Vector DB + RAG Changes the Architecture
+
+Right now the Migration Contract (MC) solves the **"agents forget what prior agents decided"** problem by passing JSON between steps. With a Vector DB you can go much further — instead of passing a flat JSON file, you build a **living semantic memory** of your entire migration project.
+
+**The 3 biggest wins you get:**
+
+**1. Semantic Code Search replaces raw JSP injection**
+Instead of pasting entire JSP files into agent prompts (which burns context and causes truncation on large forms), you embed all your legacy code into the vector DB upfront. Agents then *retrieve only the relevant chunks* — just the fields, business rules, or servlet methods they actually need for that specific task.
+
+**2. RAG-powered Golden Examples**
+Every successfully migrated module gets embedded. When a new agent is generating a complex form, it retrieves the 2–3 most similar previously-migrated forms as automatic few-shot examples. This replaces the manual `golden-examples/` folder we set up — it scales automatically as you migrate more modules.
+
+**3. Cross-module pattern reuse**
+Your vector DB becomes a reusable pattern library. When Angular generator agent encounters a conditional validation pattern it has seen before, RAG pulls the already-verified implementation instead of generating from scratch. Consistency goes up dramatically, hallucination goes down.
+
+---
+
+**The most efficient model split** given you have both Claude and OpenAI:
+
+| Task | Best Model | Why |
+|---|---|---|
+| Embeddings | `text-embedding-3-large` (OpenAI) | Best embedding quality for code |
+| JSP Analysis / MC Generation | `claude-opus-4-6` | Deepest reasoning on complex legacy logic |
+| Java/Angular Code Generation | `gpt-4o` or `claude-sonnet-4-6` | Fast, consistent from a verified spec |
+| Gate Validation | `claude-opus-4-6` | Structured error reasoning |
+| RAG retrieval + reranking | Vector DB + `gpt-4o-mini` | Cheap, fast similarity scoring |
+
+Your answers above will let me tell you exactly which architecture pattern fits your specific setup — there are three distinct approaches depending on what's already in your vector DB and which OpenAI services you're actively using.
+======================
+Perfect setup — pgvector in Postgres means zero new infrastructure. Empty DB is actually ideal, we design the schema correctly from scratch. Let me build the complete architecture.Here's the full 8-tab interactive guide. The executive summary of what this means for your specific setup:
+
+---
+
+## Why pgvector + Empty DB is Actually Perfect
+
+Empty means you design the schema right from day one. No bad data to clean up, no migration needed. You run one SQL file, and your Postgres instance becomes a full semantic memory for the entire migration project.
+
+---
+
+## The Most Efficient Split: GPT-4o + Claude
+
+| Use Claude Opus 4.6 for | Use GPT-4o for |
+|---|---|
+| JSP analysis (ambiguous legacy logic) | Java code generation (from verified spec) |
+| Migration Contract generation | Angular code generation (from verified spec) |
+| Gate validation (reasoning over errors) | Fix agent (explicit error, targeted fix) |
+
+The spec-driven generation steps (Agents 03 and 04) don't need deep reasoning — they need speed and consistency. GPT-4o wins there. Everything that requires inference over messy legacy code goes to Claude.
+
+---
+
+## The Three Biggest Wins Over Your Current Setup
+
+**1. No more full JSP in every prompt.** Agents retrieve only the 5–10 relevant chunks they need via semantic search. Context drops ~90% per call — which is why you get better results, not worse.
+
+**2. Naming decisions are retrieved, not re-invented.** The `naming_registry` table in Postgres means `cust_nm → customerName` is decided once and locked. Every subsequent agent queries it. Names are never inconsistent again.
+
+**3. Compounding returns.** After every approved module, you call `store_golden_example()` and that pattern joins the library. Module 5 is harder than Module 1. Module 20 is easier than Module 10 — because the system has seen those patterns before and auto-retrieves them as context. Your retry rate trends down over time instead of staying flat.
+
+---
+
+## Where to Start Tomorrow
+
+Run the SQL schema (Tab 2 — takes 10 minutes), then run `seed_csm_rules()` from Tab 6 to embed your existing standards. That's your Week 1 goal — everything else layers on top from there.
