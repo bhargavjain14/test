@@ -1,0 +1,14 @@
+Five files, here's exactly what each one does and where it goes:
+
+What You Got & Where Each File Goes
+UPDATE_AGENTS.md — the core instruction file. Drop this into your project root. This is what you point VS Code's agent at. It has 6 numbered rules, each one is a precise surgical addition to your existing files. Rule 0 is the preservation rule — it explicitly protects your code generation standards from being touched.
+HOW_TO_RUN.md — copy-paste prompts for Copilot Chat, Copilot Edits mode, and Cursor. Three options depending on what you use.
+SCRIPTS.md — shell and PowerShell scripts for the MC injection workflow (inject MC → run agent → restore placeholder → update MC section). No dependencies, copy the one you need into a scripts/ folder.
+.vscode/tasks.json — drop into your .vscode/ folder. Adds 5 tasks to VS Code's Run Task menu so you can inject/restore/update MC without leaving the editor.
+.github/copilot-instructions.md — workspace-level Copilot instructions VS Code reads automatically. Tells Copilot to treat csm.md as read-only for all agent update tasks, and to always preserve existing content in induction/ files.
+
+The One-Line Copilot Prompt to Use Right Now
+Open any existing agent .md file in VS Code, open Copilot Chat, and paste:
+@workspace Follow UPDATE_AGENTS.md and apply it to the open file.
+Show the diff first. Preserve ALL existing content — only add new blocks.
+That's it. The agent will identify the file type, apply only the matching rules from the SUMMARY section, and show you a diff before touching anything. Your code generation standards stay completely untouched.
