@@ -12,3 +12,99 @@ Open any existing agent .md file in VS Code, open Copilot Chat, and paste:
 @workspace Follow UPDATE_AGENTS.md and apply it to the open file.
 Show the diff first. Preserve ALL existing content — only add new blocks.
 That's it. The agent will identify the file type, apply only the matching rules from the SUMMARY section, and show you a diff before touching anything. Your code generation standards stay completely untouched.
+
+
+=========
+
+
+Here's how the whole thing works, start to finish.
+
+---
+
+## The Big Picture
+
+You have existing agent instruction files (your `.md` or `.txt` induction files). The problem is they don't share context with each other — each agent reinvents decisions the previous one already made. These new files fix that without touching your code generation rules.
+
+Think of it as three layers:
+
+**`UPDATE_AGENTS.md`** tells VS Code's agent *what changes to make* to your existing files. You use it once per induction file to retrofit them.
+
+**`copilot-instructions.md`** sits in `.github/` and tells Copilot *how to behave in this workspace forever* — it's the guardrail that stops Copilot from ever touching your Java/Angular standards.
+
+**The scripts** handle the runtime workflow — swapping the live Migration Contract in and out of your agent files each time you run a module.
+
+---
+
+## Step 1 — Set Up Once (takes ~15 minutes)
+
+Copy the files into your project like this:
+
+```
+your-project/
+├── UPDATE_AGENTS.md          ← drop here
+├── .github/
+│   └── copilot-instructions.md   ← drop here
+├── .vscode/
+│   └── tasks.json            ← drop here
+└── scripts/                  ← create this folder
+    └── (paste scripts from SCRIPTS.md here)
+```
+
+VS Code will automatically pick up `copilot-instructions.md` the moment it's in `.github/`. No configuration needed. From that point on, Copilot knows never to touch your code standards.
+
+---
+
+## Step 2 — Update Your Existing Agent Files (once per file)
+
+Open one of your existing induction files, for example `03-java-generator.md`. Open Copilot Chat alongside it and paste this exact prompt:
+
+> `@workspace Follow UPDATE_AGENTS.md and apply it to the currently open file. Show me the diff before applying. Preserve ALL existing content — only add new blocks.`
+
+Copilot will read `UPDATE_AGENTS.md`, figure out the file type from the filename, and apply only the rules that match. For a java-generator file that means it adds four things: the Migration Contract slot at the top, the naming lock after your WHAT TO GENERATE section, the JSON output lock at the bottom, and the gate failure context block near the end. Nothing else.
+
+Before it applies anything, it shows you a diff. The diff should only have green lines (additions). If you see any red lines (deletions or modifications to existing content), reject it and try again — something went wrong.
+
+Do this for each of your agent files one at a time. It takes about two minutes per file.
+
+---
+
+## Step 3 — Runtime Workflow (every time you migrate a module)
+
+This is what you do each time you process a JSP form. Say you're migrating `CustomerForm.jsp`.
+
+**First**, create a fresh Migration Contract for this module. Copy the `migration-contract.json` template, rename it `MC-CustomerForm.json`, and set the `moduleName` field.
+
+**Before running Agent 1** (your complexity analyzer), inject the MC into it:
+
+```bash
+bash scripts/inject-mc.sh induction/01-complexity-analyzer.md state/MC-CustomerForm.json
+```
+
+This replaces the `{{MC_JSON}}` placeholder in your agent file with the actual contract JSON. Now run the agent normally — whatever way you currently trigger it.
+
+**After Agent 1 finishes**, copy its JSON output into the contract, then restore the placeholder:
+
+```bash
+bash scripts/restore-placeholder.sh induction/01-complexity-analyzer.md
+bash scripts/update-mc-section.sh state/MC-CustomerForm.json source output/phase0.json
+```
+
+The agent file goes back to having `{{MC_JSON}}` in it, clean for the next module. The contract now has the `source` section filled in.
+
+**Repeat this inject → run → restore → update pattern** for every agent in your pipeline. By the time you reach Agent 3 (java-generator), the contract already has the field analysis and naming decisions from Agents 1 and 2 baked in — so Agent 3 never needs to re-infer any of it.
+
+If you prefer not to use the command line, the `.vscode/tasks.json` file adds all of this as clickable tasks under **Terminal → Run Task** in VS Code.
+
+---
+
+## What Happens When a Gate Fails
+
+When your gate validator flags errors, you don't restart the whole pipeline. You copy the gate report into `MC.activeErrors` in the contract, then re-run just the agent that failed. Because your agent files now have the **Gate Failure Context** block in them, the agent will see the errors in the contract and fix only those specific issues — everything else stays untouched.
+
+Most failures resolve in one retry. If it fails three times, the gate agent's output will include an `"unfixable"` array telling you exactly what a human needs to look at manually.
+
+---
+
+## The One Rule to Remember
+
+The `{{MC_JSON}}` token in your induction files is the linchpin. Before every agent run it gets filled with real data. After every agent run it gets restored to the placeholder. The scripts handle this automatically — if you ever forget to restore it, the next module will have the previous module's data injected, which will cause confusion. The restore script is a one-liner so it's worth making it a habit.
