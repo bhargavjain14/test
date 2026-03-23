@@ -1,0 +1,144 @@
+{
+  // .vscode/tasks.json
+  // Drop this file into your .vscode/ folder.
+  // Run tasks via: Terminal → Run Task (Ctrl+Shift+P → Tasks: Run Task)
+  // ─────────────────────────────────────────────────────────────────────
+  // These tasks let you run the MC injection/restore workflow directly
+  // from VS Code without leaving the editor.
+  // ─────────────────────────────────────────────────────────────────────
+  "version": "2.0.0",
+  "tasks": [
+
+    // ── Task 1: Inject MC into a specific agent file ──────────────────
+    {
+      "label": "Migration: Inject MC into agent file",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "scripts/inject-mc.sh",
+        "${input:agentFile}",
+        "${input:mcFile}"
+      ],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    // ── Task 2: Restore placeholder after agent run ───────────────────
+    {
+      "label": "Migration: Restore MC placeholder",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "scripts/restore-placeholder.sh",
+        "${input:agentFile}"
+      ],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    // ── Task 3: Update MC section from agent output ───────────────────
+    {
+      "label": "Migration: Update MC section",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "scripts/update-mc-section.sh",
+        "${input:mcFile}",
+        "${input:mcSection}",
+        "${input:outputFile}"
+      ],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    // ── Task 4: Validate current MC is complete ───────────────────────
+    {
+      "label": "Migration: Validate MC completeness",
+      "type": "shell",
+      "command": "python3",
+      "args": [
+        "-c",
+        "import json, sys; mc=json.load(open('${input:mcFile}')); missing=[k for k,v in mc.items() if isinstance(v,dict) and '_instruction' in str(v)]; print('Missing sections:', missing) if missing else print('MC looks complete — all sections filled')"
+      ],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    // ── Task 5: Apply UPDATE_AGENTS.md to open file (Copilot prompt) ──
+    // This task copies the right Copilot prompt to clipboard so you
+    // can paste it straight into Copilot Chat for the open file.
+    {
+      "label": "Migration: Copy agent-update prompt for Copilot",
+      "type": "shell",
+      "command": "echo",
+      "args": [
+        "@workspace Follow UPDATE_AGENTS.md rules. Apply to the currently open file. Show diff before applying. Preserve ALL existing content — only add new blocks."
+      ],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+
+  ],
+
+  // ── Input variable definitions ────────────────────────────────────────
+  "inputs": [
+    {
+      "id": "agentFile",
+      "type": "promptString",
+      "description": "Agent induction file path (e.g. induction/03-java-generator.md)",
+      "default": "induction/03-java-generator.md"
+    },
+    {
+      "id": "mcFile",
+      "type": "promptString",
+      "description": "Migration Contract JSON file path",
+      "default": "state/MC-CustomerForm.json"
+    },
+    {
+      "id": "mcSection",
+      "type": "pickString",
+      "description": "Which MC section to update?",
+      "options": [
+        "source",
+        "target",
+        "namingRegistry",
+        "generatedJava",
+        "generatedAngular",
+        "gateReports.gate1",
+        "gateReports.gate2",
+        "gateReports.gate3"
+      ]
+    },
+    {
+      "id": "outputFile",
+      "type": "promptString",
+      "description": "Agent output JSON file path",
+      "default": "output/CustomerForm/phase0-output.json"
+    }
+  ]
+}
